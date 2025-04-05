@@ -1,0 +1,99 @@
+import customtkinter as ctk
+import pandas as pd
+import joblib
+from datetime import timedelta
+from predict_stock_price import predict_stock_price
+import numpy as np
+from tkinter import messagebox
+
+
+def set_dark_theme(widget):
+    widget.configure(fg_color="#2e2e2e", font=("Arial", 12))
+
+
+def predict_and_display():
+    ticker = ticker_dropdown.get()
+    days_ahead = int(days_var.get())
+
+    try:
+        historical_data = pd.read_csv(
+            f'updated_data/{ticker}_updated.csv', parse_dates=['Date'])
+        last_date = historical_data['Date'].max()
+
+        with open(f'../data/scalers/{ticker}_scaler.pkl', 'rb') as f:
+            scaler = joblib.load(f)
+
+        scaled_predictions = predict_stock_price(
+            ticker, days_ahead=days_ahead, n_steps=60)
+
+        if scaled_predictions.ndim == 1:
+            scaled_predictions = scaled_predictions.reshape(-1, 1)
+
+        num_features = scaler.scale_.shape[0]
+        if scaled_predictions.shape[1] < num_features:
+            padding = np.zeros(
+                (scaled_predictions.shape[0], num_features - scaled_predictions.shape[1]))
+            scaled_predictions = np.hstack((scaled_predictions, padding))
+
+        future_predictions_rescaled = scaler.inverse_transform(
+            scaled_predictions)
+
+        prediction_dates = [
+            last_date + timedelta(days=i) for i in range(1, days_ahead + 1)]
+
+        output_text.delete(1.0, ctk.END)
+        output_text.insert(ctk.END, f"Predicted prices for {ticker}:\n")
+        for date, price in zip(prediction_dates, future_predictions_rescaled[:, 0]):
+            output_text.insert(ctk.END, f"{date.date()}: {price:.4f}\n")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {e}")
+
+
+root = ctk.CTk()
+root.title("Stock Price Predictor")
+
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+window_width = 600
+window_height = 500
+position_top = int(screen_height / 2 - window_height / 2)
+position_right = int(screen_width / 2 - window_width / 2)
+root.geometry(f'{window_width}x{
+              window_height}+{position_right}+{position_top}')
+
+root.resizable(False, False)
+set_dark_theme(root)
+
+root.grid_columnconfigure(0, weight=1, minsize=100)
+root.grid_columnconfigure(1, weight=2, minsize=200)
+root.grid_rowconfigure(0, weight=1, minsize=30)
+root.grid_rowconfigure(1, weight=1, minsize=30)
+root.grid_rowconfigure(2, weight=1, minsize=30)
+root.grid_rowconfigure(3, weight=5, minsize=200)
+
+days_var = ctk.StringVar()
+tickers = ['AAPL', 'AMZN', 'META', 'GOOGL', 'NFLX', 'MSFT']
+ctk.CTkLabel(root, text="Select Ticker:").grid(
+    column=0, row=0, padx=10, pady=10, sticky="e")
+ticker_dropdown = ctk.CTkComboBox(root, values=tickers)
+ticker_dropdown.grid(column=1, row=0, padx=10, pady=10, sticky="w")
+ticker_dropdown.set(tickers[0])
+
+ctk.CTkLabel(root, text="Days Ahead:").grid(
+    column=0, row=1, padx=10, pady=10, sticky="e")
+days_entry = ctk.CTkEntry(root, textvariable=days_var)
+days_entry.grid(column=1, row=1, padx=10, pady=10, sticky="w")
+days_var.set("5")
+
+predict_button = ctk.CTkButton(
+    root, text="Predict", command=predict_and_display)
+predict_button.grid(column=0, row=2, columnspan=2)
+
+output_text = ctk.CTkTextbox(root, height=200, width=1000)
+output_text.grid(column=0, row=3, columnspan=2,
+                 padx=10, pady=10, sticky="nsew")
+set_dark_theme(output_text)
+output_text.configure(fg_color="#1a1a1a")
+
+root.mainloop()
