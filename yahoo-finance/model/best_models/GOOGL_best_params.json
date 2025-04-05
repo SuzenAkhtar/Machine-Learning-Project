@@ -1,0 +1,6 @@
+{
+    "hidden_size": 200,
+    "num_layers": 1,
+    "dropout": 0.2,
+    "validation_loss": 0.001268100771333345
+}
