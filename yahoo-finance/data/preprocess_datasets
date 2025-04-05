@@ -1,0 +1,25 @@
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+import joblib
+
+tickers = ['AAPL', 'AMZN', 'META', 'GOOGL', 'NFLX', 'MSFT']
+
+
+def load_and_preprocess_data(ticker):
+    file_path = f"csv\\{ticker}_stock_data.csv"
+    data = pd.read_csv(file_path, parse_dates=['Date'], index_col='Date')
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    columns_to_scale = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+    scaled_data = scaler.fit_transform(data[columns_to_scale])
+
+    preprocessed_data = pd.DataFrame(
+        scaled_data, columns=columns_to_scale, index=data.index)
+
+    preprocessed_data.to_csv(f"preprocessed\\{ticker}_preprocessed_data.csv")
+    joblib.dump(scaler, f"scalers\\{ticker}_scaler.pkl")
+
+
+for ticker in tickers:
+    print(f"Preprocessing data for {ticker}...")
+    load_and_preprocess_data(ticker)
